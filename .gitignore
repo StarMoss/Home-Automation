@@ -1,1 +1,94 @@
+# =============================================================================
+# Smart Home Control Center: .gitignore
+#
+# Safety net, not a guarantee. .gitignore only affects UNTRACKED files. If a
+# secret was ever committed, ignoring it later does not remove it from history.
+# Consider a pre-commit secret scanner (for example gitleaks or git-secrets).
+# =============================================================================
+
+# --- Secrets and credentials -------------------------------------------------
+secrets.yaml
+secrets*.yaml
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.crt
+*.cer
+id_rsa*
+id_ed25519*
+*.token
+*token*.txt
+*credentials*.json
+*service-account*.json
+client_secret*.json
+
+# --- Home Assistant runtime data (contains credentials and pairings) ----------
+.storage/
+.cloud/
+.HA_VERSION
+home-assistant_v2.db*
+home-assistant.log*
+known_devices.yaml
+deps/
+tts/
+www/private/
+
+# --- Backups and exports (contain secrets) -----------------------------------
+backups/
+backup/
+*.tar
+*.tar.gz
+*.tgz
+*.zip
+*.7z
+
+# --- VPN and network configs --------------------------------------------------
+wg*.conf
+*.ovpn
+
+# --- Network captures and browser exports (can contain tokens/cookies) --------
+*.pcap
+*.pcapng
+*.har
+
+# --- Private, filled-in documentation ----------------------------------------
+# Keep the committed templates (device-inventory.md, etc.) blank in a public
+# repo. Put real data in files matching these patterns so they cannot be
+# committed by accident. In a PRIVATE repo you may delete this section and
+# commit filled-in docs instead.
+*.local.md
+*.private.md
+private/
+local/
+inventory.local.*
+network.local.*
+
+# --- Custom control center (if built later) -----------------------------------
+node_modules/
+dist/
+build/
+coverage/
+.next/
+.cache/
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# --- Logs ----------------------------------------------------------------------
+*.log
+logs/
+
+# --- OS and editor files ------------------------------------------------------
 .DS_Store
+.AppleDouble
+.Trashes
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*~
