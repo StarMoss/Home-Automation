@@ -87,7 +87,3 @@ The device inventory is the file most likely to leak details by accident. Keep t
 - Home Assistant Reolink integration: https://home-assistant.io/integrations/reolink
 - Tuya Smart Life integration for Home Assistant: https://github.com/tuya/tuya-smart-life
 - Home Assistant REST API: https://developers.home-assistant.io/docs/api/rest/
-
-## License
-
-_TBD. Choose a license before publishing (for example MIT for the docs, or CC BY 4.0 for documentation-only content)._
