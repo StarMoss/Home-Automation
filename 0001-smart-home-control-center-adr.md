@@ -17,6 +17,7 @@ Devices in the home today:
 | Google Nest thermostat | Google cloud, Smart Device Management (SDM) API | Yes, official |
 | VOCOlinc smart plugs | HomeKit Accessory Protocol (HAP), local | No public cloud API; HAP is the interface |
 | Lenovo smart plugs and lights | Believed to be rebadged Tuya ("Powered by Tuya") | No public Lenovo API (per Lenovo support, as reported on forums); Tuya Cloud API instead |
+| Security cameras (under evaluation: Reolink as an alternative to Ring) | Reolink: local LAN, official Home Assistant integration | Reolink: local control with no cloud account required for operation (per HA docs). Ring: not evaluated here. |
 
 **Goal:** manage all devices from one place, ideally with a custom control center and programmatic access.
 
@@ -66,6 +67,16 @@ Adopt **Option B**. Home Assistant becomes the single integration point. The cus
 | Nest thermostat | Google Nest (SDM) | Register Device Access project (one-time US$5), enable SDM API in Google Cloud, OAuth2. Devices are tied to the Google account, so there is no LAN discovery. HA stores and refreshes tokens. | Cloud |
 | VOCOlinc plugs | HomeKit Controller | mDNS/Bonjour discovery (`_hap._tcp`), then HAP pairing with the 8-digit setup code. Plugs must be in HomeKit mode. | Local |
 | Lenovo plugs/lights | Tuya or Smart Life | Link the app account (QR scan in Smart Life app) and sync devices from Tuya cloud | Cloud (local control only via custom firmware) |
+| Reolink cameras (proposed) | Reolink (official, in HA core) | Auto-discovered on the LAN, or add manually by IP/host. Battery-powered Wi-Fi models require a Reolink Home Hub/NVR, and you add the hub's IP instead (its cameras are added automatically). | Local |
+
+### 5.1.1 Cameras
+
+- **Integration:** Home Assistant's Reolink integration covers cameras and NVRs. Depending on the model, it exposes a live stream, binary sensors for detection events (including doorbell presses on doorbell models), and adjustable settings as entities. Changes made in the Reolink app show up in HA as entities within about 60 seconds.
+- **Offline behavior:** Per the HA docs, blocking the cameras' internet access does not break the integration or the Reolink app. This is a notable contrast with Nest SDM, where camera access is mostly events and snapshots rather than continuous streaming.
+- **Power type matters:** Plugged-in or PoE cameras can be standalone or go through a hub/NVR. Battery cameras need the hub/NVR. This choice drives cost and architecture, and it is tracked in ADR-007 (see the decision backlog).
+- **Support varies by model:** Not every model supports every feature. Check the specific model against the HA Reolink integration page before buying.
+- **Status:** Reolink is a *proposed* direction, not a final decision. Model selection, recording/storage, and network placement are open (ADR-003, ADR-007 in the backlog).
+- **Ring comparison (low confidence, not verified in this session):** My understanding is that Ring's HA integration is cloud-based and more limited for streaming. Verify if Ring remains a candidate.
 
 ### 5.2 Layering
 
@@ -74,9 +85,11 @@ Custom control center (UI)
         |  REST + WebSocket, single long-lived token
         v
    Home Assistant  <-- entity normalization (domain, state, attributes)
-   |        |        |
- Nest SDM   HAP     Tuya cloud
- (OAuth2)  (LAN)    (account link)
+   |        |        |        |
+ Nest SDM   HAP     Tuya     Reolink
+ (OAuth2)  (LAN)    cloud    (LAN, local)
+                   (account
+                    link)
 ```
 
 ### 5.3 Custom control center API usage
@@ -92,8 +105,10 @@ The MacBook is rejected as host: it sleeps, travels, and leaves the LAN. A cloud
 |---|---|---|
 | Home Assistant Green (about US$100, price unverified) | Purpose-built appliance, minimal setup | **Default pick** |
 | Raspberry Pi 4/5 (4GB+), HA OS, SSD preferred over SD | Cheap, best-documented path, low power | Equally good |
-| Mini PC (N100-class) running HA in Docker | More headroom if a homelab grows; you also patch the host OS | If other self-hosting is planned |
+| Mini PC (N100-class) running HA in Docker | More headroom if a homelab grows; you also patch the host OS | If other self-hosting is planned, or if several cameras are added |
 | NAS with Docker | One less device if you already own one | Fine if available |
+
+Note: adding cameras may change this ranking. Viewing and recording video streams can add load, so a Pi-class device could be tight with several cameras. The final hardware choice is tracked in ADR-002.
 
 ## 7. Operational Overhead (estimates)
 
@@ -127,6 +142,11 @@ The MacBook is rejected as host: it sleeps, travels, and leaves the LAN. A cloud
 | VOCOlinc mode | Must be set up in HomeKit mode and on 2.4GHz Wi-Fi; may need an Apple home hub for remote HomeKit control (not needed for local HA control) | Moderate | Verify mode in the VOCOlinc app |
 | Custom firmware | `tuya-convert`/Tasmota/ESPHome can give local Lenovo control but may void warranty and may not work on newer chips | Low | Only if cloud dependence becomes unacceptable |
 | HA Green price and availability | From memory, not verified | Low | Check current price |
+| Reolink model support | Feature support varies by camera model | Moderate-high | Check the exact model on the HA Reolink integration page before buying |
+| Reolink battery cameras | Need a Reolink Home Hub/NVR to work with HA | High (per Reolink and HA docs) | Prefer PoE/plugged-in cameras, or budget for a hub |
+| Camera load on HA host | Video streaming/recording may exceed a Pi-class host | Low-moderate (my estimate, not measured) | Decide in ADR-002 and ADR-007; measure with one camera first |
+| Ring vs Reolink | Ring claims in this document are unverified | Low | Verify if Ring remains an option |
+| Camera network exposure | Cameras are a sensitive device class and belong on a controlled network segment | Moderate (design judgment) | Decide in ADR-003 |
 
 ## 10. Implementation Plan
 
@@ -134,9 +154,14 @@ The MacBook is rejected as host: it sleeps, travels, and leaves the LAN. A cloud
 2. Pair VOCOlinc plugs via HomeKit Controller (validate mDNS visibility on the LAN)
 3. Link Nest via Device Access (register, create project, OAuth consent)
 4. Verify one Lenovo device in Smart Life, then add the Tuya/Smart Life integration
-5. Configure backups and off-device copies
-6. Generate a long-lived token; prototype the custom UI against `/api/states` and the WebSocket event stream
-7. Decide on remote access (VPN such as WireGuard or Tailscale rather than exposing HA publicly)
+5. Add one Reolink camera first (auto-discovery or by IP); confirm stream, detection entities, and HA host load before buying more
+6. Configure backups and off-device copies
+7. Generate a long-lived token; prototype the custom UI against `/api/states` and the WebSocket event stream
+8. Decide on remote access (VPN such as WireGuard or Tailscale rather than exposing HA publicly)
+
+## 10.1 Open Decisions
+
+The decisions that are still open are tracked as templates in `adr-decision-backlog.md` (ADR-002 through ADR-011): hosting hardware, IoT network segmentation, remote access, backups, credentials/secrets, camera hardware and storage, the Lenovo/Tuya path, the custom control center architecture, update/maintenance policy, and configuration management.
 
 ## 11. References
 
@@ -145,3 +170,5 @@ The MacBook is rejected as host: it sleeps, travels, and leaves the LAN. A cloud
 - Home Assistant Nest integration: https://www.home-assistant.io/integrations/nest/
 - Tuya Smart Life integration for HA: https://github.com/tuya/tuya-smart-life
 - Home Assistant REST/WebSocket API docs: https://developers.home-assistant.io/docs/api/rest/
+- Home Assistant Reolink integration: https://home-assistant.io/integrations/reolink
+- Reolink support, Home Assistant integration: https://support.reolink.com/hc/en-us/articles/44904170792345-Reolink-Home-Assistant-Integration/
